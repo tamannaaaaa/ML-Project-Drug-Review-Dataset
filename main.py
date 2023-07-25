@@ -99,68 +99,38 @@ test_df = pd.read_csv(
 )
 
 # Convert the "date" column to datetime format in the training and testing datasets
-train_df["date"], test_df["date"] = pd.to_datetime(
-    train_df["date"], format="%B %d, %Y"
-), pd.to_datetime(test_df["date"], format="%B %d, %Y")
+# Date Conversion
+train_df["date"], test_df["date"] = pd.to_datetime(train_df["date"], format="%B %d, %Y"), pd.to_datetime(test_df["date"], format="%B %d, %Y")
 
-## Extracting day, month, and year into separate columns
+# Extracting day, month, and year into separate columns
 for df in [train_df, test_df]:
     df["day"] = df["date"].dt.day.astype("int8")
     df["month"] = df["date"].dt.month.astype("int8")
     df["year"] = df["date"].dt.year.astype("int16")
 
-## Suppressing MarkupResemblesLocatorWarning, FutureWarning and ConvergenceWarning
+# Suppressing MarkupResemblesLocatorWarning, FutureWarning, and ConvergenceWarning
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 warnings.simplefilter(action="ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-
-## Defining function to decode HTML-encoded characters
+# Defining function to decode HTML-encoded characters
 def decode_html(text):
     decoded_text = BeautifulSoup(text, "html.parser").get_text()
     return decoded_text
 
+# Applying the function to the review column
+train_df["review"], test_df["review"] = train_df["review"].apply(decode_html), test_df["review"].apply(decode_html)
 
-## Applying the function to the review column
-train_df["review"], test_df["review"] = train_df["review"].apply(decode_html), test_df[
-    "review"
-].apply(decode_html)
+# Dropped the original date column and removed the first column
+train_df, test_df = [df.drop("date", axis=1).iloc[:, 1:] for df in (train_df, test_df)]
 
-## Dropped the original date column and removed the useless column
-train_df, test_df = [
-    df.drop("date", axis=1).drop(df.columns[0], axis=1) for df in (train_df, test_df)
-]
-
-## Handling the missing values and assigning old column names
+# Handling the missing values and assigning old column names
 train_imp, test_imp = [
     pd.DataFrame(
-        SimpleImputer(strategy="most_frequent").fit_transform(df), columns=df.columns
+        SimpleImputer(strategy="most_frequent").fit_transform(df),
+        columns=df.columns
     )
     for df in (train_df, test_df)
-]
-
-# Assign new column names to the training dataset
-train_imp.columns = [
-    "drugName",
-    "condition",
-    "review",
-    "rating",
-    "usefulCount",
-    "day",
-    "month",
-    "year",
-]
-
-# Assign new column names to the testing dataset
-test_imp.columns = [
-    "drugName",
-    "condition",
-    "review",
-    "rating",
-    "usefulCount",
-    "day",
-    "month",
-    "year",
 ]
 
 # Tokenize the text in the "review" column of the training dataset
@@ -168,10 +138,20 @@ train_imp["tokenized_text"] = [
     gensim.utils.simple_preprocess(line, deacc=True) for line in train_imp["review"]
 ]
 
-# Tokenize the text in the "review" column of the testing dataset
-test_imp["tokenized_text"] = [
-    gensim.utils.simple_preprocess(line, deacc=True) for line in test_imp["review"]
+# Assign new column names to the training and testing datasets
+new_column_names = [
+    "drugName",
+    "condition",
+    "review",
+    "rating",
+    "usefulCount",
+    "day",
+    "month",
+    "year",
 ]
+
+train_imp.columns = new_column_names
+test_imp.columns = new_column_names
 
 # Create an instance of the PorterStemmer
 porter_stemmer = PorterStemmer()
